@@ -8,228 +8,20 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyASI0J9rev9-NmWnNmSV8gqG_uOOR1-19Y&libraries=places"></script>
-    <style>
-        /* Keep your existing styles */
-        /* Add these new styles */
-        :root {
-            --primary-color: #6C63FF;
-            --background-dark: #1A1A1A;
-            --card-background: #2D2D2D;
-            --text-primary: #FFFFFF;
-            --text-secondary: #B3B3B3;
-            --input-background: #3D3D3D;
-            --hover-color: #5A52D5;
-            --error-color: #FF6B6B;
-            --success-color: #4CAF50;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: var(--background-dark);
-            color: var(--text-primary);
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background-color: var(--card-background);
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        h1, h2 {
-            text-align: center;
-            color: var(--primary-color);
-            margin-bottom: 1.5rem;
-        }
-
-        h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-        }
-
-        form {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        label {
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: var(--text-secondary);
-        }
-
-        input, button {
-            padding: 12px 16px;
-            border-radius: 8px;
-            border: 1px solid var(--input-background);
-            background-color: var(--input-background);
-            color: var(--text-primary);
-            font-size: 16px;
-            transition: all 0.3s ease;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.2);
-        }
-
-        button {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            grid-column: span 2;
-        }
-
-        button:hover {
-            background-color: var(--hover-color);
-        }
-
-        .tab-container {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 30px;
-            background-color: var(--input-background);
-            padding: 5px;
-            border-radius: 10px;
-        }
-
-        .tab {
-            padding: 12px 24px;
-            background-color: transparent;
-            border: none;
-            border-radius: 8px;
-            margin: 0 5px;
-            cursor: pointer;
-            color: var(--text-secondary);
-            transition: all 0.3s ease;
-        }
-
-        .tab.active {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .shipment-list {
-            display: grid;
-            gap: 20px;
-        }
-
-        .shipment-item {
-            background-color: var(--input-background);
-            border-radius: 10px;
-            padding: 20px;
-            transition: transform 0.3s ease;
-        }
-
-        .shipment-item:hover {
-            transform: translateY(-5px);
-        }
-
-        .shipment-item h3 {
-            margin-top: 0;
-            color: var(--primary-color);
-            font-size: 1.2rem;
-        }
-
-        .pdf-link {
-            color: var(--primary-color);
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .pdf-link:hover {
-            color: var(--hover-color);
-        }
-
-        @media (max-width: 768px) {
-            form {
-                grid-template-columns: 1fr;
-            }
-            
-            button {
-                grid-column: span 1;
-            }
-        }
-
-
-        .filter-controls {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-bottom: 30px;
-            background-color: var(--input-background);
-            padding: 20px;
-            border-radius: 10px;
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .filter-buttons {
-            display: flex;
-            gap: 10px;
-            grid-column: span 2;
-            justify-content: center;
-            margin-top: 10px;
-        }
-
-        .filter-buttons button {
-            flex: 1;
-            max-width: 150px;
-        }
-
-        .total-rate {
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 1.5rem;
-        }
-
-        .total-rate span {
-            color: var(--primary-color);
-            font-weight: bold;
-        }
-
-        @media (max-width: 768px) {
-            .filter-controls {
-                grid-template-columns: 1fr;
-            }
-            
-            .filter-buttons {
-                grid-column: span 1;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="index.css">
     <script src="script2.js" defer></script>
 </head>
 <body>
     <div class="container">
         <h1>Shipment Tracker</h1>
         
+        <!-- Tab Navigation -->
         <div class="tab-container">
             <button class="tab active" onclick="showTab('addShipmentForm')">Add Shipment</button>
             <button class="tab" onclick="showTab('viewShipments')">View Shipments</button>
         </div>
 
+        <!-- Add Shipment Form -->
         <div id="addShipmentForm">
             <h2>Add New Shipment</h2>
             <form id="shipmentForm">
@@ -277,41 +69,50 @@
                     <label for="deliveryDate">Delivery Date</label>
                     <input type="date" id="deliveryDate" required>
                 </div>
-        
+                
                 <div class="form-group">
                     <label for="pdfFile">Upload PDF</label>
                     <input type="file" id="pdfFile" accept=".pdf">
                 </div>
-        
-                <button type="submit">Submit Shipment</button>
+
+                <!-- Correct Placement of Add Shipment Button -->
+                <button type="submit">Add Shipment</button>
             </form>
         </div>
-    
+
+        <!-- View Shipments Section -->
         <div id="viewShipments" style="display:none;">
-            <h2>Shipments</h2>
-            
+            <h2>View Shipments</h2>
+
+            <!-- Search Bar -->
+            <div class="search-container">
+                <input type="text" id="searchBar" placeholder="Search by broker, load ID, shipper, or receiver">
+            </div>
+
+            <!-- Date Filters -->
             <div class="filter-controls">
                 <div class="filter-group">
-                    <label for="fromDate">From Date</label>
-                    <input type="date" id="fromDate">
+                    <label for="filterStartDate">Start Date:</label>
+                    <input type="date" id="filterStartDate">
                 </div>
-                
                 <div class="filter-group">
-                    <label for="toDate">To Date</label>
-                    <input type="date" id="toDate">
+                    <label for="filterEndDate">End Date:</label>
+                    <input type="date" id="filterEndDate">
                 </div>
-                
+
                 <div class="filter-buttons">
-                    <button onclick="filterShipments()">Filter</button>
-                    <button onclick="resetFilters()">Reset</button>
+                    <button id="applyFilterBtn">Apply Filters</button>
+                    <button id="clearFilterBtn">Clear Filters</button>
                 </div>
             </div>
-            
+
+            <!-- Total Rate Display -->
             <div class="total-rate">
-                Total Rate: <span id="totalRate">$0.00</span>
+                <span id="totalRate">$0.00</span>
             </div>
-            
-            <div id="shipmentList" class="shipment-list"></div>
+
+            <!-- Shipment List -->
+            <div class="shipment-list" id="shipmentList"></div>
         </div>
     </div>
 </body>
