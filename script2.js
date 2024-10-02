@@ -1,4 +1,4 @@
-// Initialize Firebase (replace with your own config)
+// Initialize Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyBVH4syVcOVAJJI0BkPl8EWUcarmgqQIH0",
     authDomain: "shipment-c50a1.firebaseapp.com",
@@ -21,47 +21,77 @@ function formatNumber(number) {
     });
 }
 
+// Initialize Google Maps Autocomplete
 function initAutocomplete() {
     const shipperAddressInput = document.getElementById('shipperAddress');
     const receiverAddressInput = document.getElementById('receiverAddress');
 
-    // Initialize Google Maps Autocomplete for Shipper Address
-    const shipperAutocomplete = new google.maps.places.Autocomplete(shipperAddressInput, {
-        types: ['geocode']
-    });
+    if (shipperAddressInput && receiverAddressInput) {
+        new google.maps.places.Autocomplete(shipperAddressInput, {
+            types: ['geocode']
+        });
 
-    // Initialize Google Maps Autocomplete for Receiver Address
-    const receiverAutocomplete = new google.maps.places.Autocomplete(receiverAddressInput, {
-        types: ['geocode']
-    });
+        new google.maps.places.Autocomplete(receiverAddressInput, {
+            types: ['geocode']
+        });
+    }
 }
 
-// Initialize autocomplete once the page is loaded
-window.onload = function() {
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
     initAutocomplete();
-    displayShipments(); // Show all shipments initially
-};
+    
+    // Set up search functionality
+    const searchBar = document.getElementById('searchBar');
+    if (searchBar) {
+        let debounceTimeout;
+        searchBar.addEventListener('input', () => {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(searchShipments, 300);
+        });
+    }
+
+    // Set up form submission
+    const shipmentForm = document.getElementById('shipmentForm');
+    if (shipmentForm) {
+        shipmentForm.addEventListener('submit', handleFormSubmission);
+    }
+
+    // Set up filter buttons
+    const applyFilterBtn = document.getElementById('applyFilterBtn');
+    if (applyFilterBtn) {
+        applyFilterBtn.addEventListener('click', filterShipments);
+    }
+
+    const clearFilterBtn = document.getElementById('clearFilterBtn');
+    if (clearFilterBtn) {
+        clearFilterBtn.addEventListener('click', resetFilters);
+    }
+
+    displayShipments();
+});
 
 // Handle form submission
-document.getElementById('shipmentForm').addEventListener('submit', function(e) {
+function handleFormSubmission(e) {
     e.preventDefault();
     
-    const rateInput = document.getElementById('rate').value;
-    const rate = rateInput ? parseFloat(rateInput) : 0;
+    const rateInput = document.getElementById('rate');
+    const rate = rateInput && rateInput.value ? parseFloat(rateInput.value) : 0;
     
     const shipment = {
-        broker: document.getElementById('broker').value,
-        loadId: document.getElementById('loadId').value,
+        broker: document.getElementById('broker')?.value || '',
+        loadId: document.getElementById('loadId')?.value || '',
         rate: rate,
-        shipperName: document.getElementById('shipperName').value,
-        shipperAddress: document.getElementById('shipperAddress').value,
-        receiverName: document.getElementById('receiverName').value,
-        receiverAddress: document.getElementById('receiverAddress').value,
-        pickupDate: document.getElementById('pickupDate').value,
-        deliveryDate: document.getElementById('deliveryDate').value
+        shipperName: document.getElementById('shipperName')?.value || '',
+        shipperAddress: document.getElementById('shipperAddress')?.value || '',
+        receiverName: document.getElementById('receiverName')?.value || '',
+        receiverAddress: document.getElementById('receiverAddress')?.value || '',
+        pickupDate: document.getElementById('pickupDate')?.value || '',
+        deliveryDate: document.getElementById('deliveryDate')?.value || ''
     };
 
-    const pdfFile = document.getElementById('pdfFile').files[0];
+    const pdfFileInput = document.getElementById('pdfFile');
+    const pdfFile = pdfFileInput?.files[0];
 
     if (pdfFile) {
         const storageRef = storage.ref('shipment_pdfs/' + shipment.loadId + '_' + pdfFile.name);
@@ -78,16 +108,19 @@ document.getElementById('shipmentForm').addEventListener('submit', function(e) {
     } else {
         addShipmentToFirestore(shipment);
     }
-});
+}
 
+// Add shipment to Firestore
 function addShipmentToFirestore(shipment) {
     return db.collection("shipments").add(shipment)
         .then((docRef) => {
             console.log("Shipment added with ID: ", docRef.id);
             alert("Shipment added successfully!");
-            document.getElementById('shipmentForm').reset();
-            if (document.getElementById('viewShipments').style.display === 'block') {
-                displayShipments(); // Refresh the shipment list if it's visible
+            const form = document.getElementById('shipmentForm');
+            if (form) form.reset();
+            const viewShipmentsTab = document.getElementById('viewShipments');
+            if (viewShipmentsTab && viewShipmentsTab.style.display === 'block') {
+                displayShipments();
             }
         })
         .catch((error) => {
@@ -96,111 +129,160 @@ function addShipmentToFirestore(shipment) {
         });
 }
 
-// Function to display shipments filtered by pickup date
-function displayShipments(fromDate = null, toDate = null) {
-    const shipmentList = document.getElementById('shipmentList');
-    shipmentList.innerHTML = '<p>Loading shipments...</p>'; // Loading indicator
+// Search shipments
+function searchShipments() {
+    const searchInput = document.getElementById('searchBar');
+    if (!searchInput) return;
 
-    let totalRate = 0;
-    let query = db.collection("shipments").orderBy("pickupDate", "desc");
-
-    // If both fromDate and toDate are provided, apply the date range filter
-    if (fromDate && toDate) {
-        // Ensure we're working with strings in the correct format for Firestore
-        const startDate = fromDate.toISOString().split('T')[0];
-        const endDate = toDate.toISOString().split('T')[0];
-        
-        query = db.collection("shipments")
-                  .where("pickupDate", ">=", startDate)
-                  .where("pickupDate", "<=", endDate)
-                  .orderBy("pickupDate", "desc");
-    }
-
-    query.get().then((querySnapshot) => {
-        shipmentList.innerHTML = ''; // Clear loading indicator
-        
-        if (querySnapshot.empty) {
-            shipmentList.innerHTML = '<p>No shipments found for the selected date range.</p>';
-            document.getElementById('totalRate').textContent = '$0.00';
-            return;
-        }
-
-        querySnapshot.forEach((doc) => {
-            const shipment = doc.data();
-            const shipmentRate = shipment.rate ? parseFloat(shipment.rate) : 0;
-            totalRate += shipmentRate;
-
-            const shipmentElement = document.createElement('div');
-            shipmentElement.className = 'shipment-item';
-            shipmentElement.innerHTML = `
-                <h3>Load ID: ${shipment.loadId}</h3>
-                <p><strong>Broker:</strong> ${shipment.broker}</p>
-                <p><strong>Rate:</strong> $${formatNumber(shipmentRate)}</p>
-                <hr/>
-                <p><strong>Shipper:</strong> ${shipment.shipperName}</p>
-                <p><strong>Address:</strong> ${shipment.shipperAddress}</p>
-                <p><strong>Pick Up Date:</strong> ${shipment.pickupDate || 'N/A'}</p>
-                <hr/>
-                <p><strong>Receiver:</strong> ${shipment.receiverName}</p>
-                <p><strong>Address:</strong> ${shipment.receiverAddress}</p>
-                <p><strong>Delivery Date:</strong> ${shipment.deliveryDate || 'N/A'}</p>
-                <hr/>
-                ${shipment.pdfUrl ? `<p><a href="${shipment.pdfUrl}" target="_blank" class="pdf-link">View PDF</a></p>` : ''}
-            `;
-            shipmentList.appendChild(shipmentElement);
-        });
-
-        // Update total rate display with thousand separator
-        document.getElementById('totalRate').textContent = `$${formatNumber(totalRate)}`;
-    }).catch((error) => {
-        console.error("Error getting shipments: ", error);
-        shipmentList.innerHTML = '<p>Error loading shipments. Please try again later.</p>';
-    });
+    const searchKeyword = searchInput.value.toLowerCase().trim();
+    displayShipments(null, null, searchKeyword);
 }
 
-// Function to filter shipments based on pickup date
+// Filter shipments by date
 function filterShipments() {
-    const fromDateInput = document.getElementById('fromDate').value;
-    const toDateInput = document.getElementById('toDate').value;
+    const fromDateInput = document.getElementById('filterStartDate');
+    const toDateInput = document.getElementById('filterEndDate');
 
-    if (!fromDateInput || !toDateInput) {
-        alert("Please select both a start and an end date for filtering.");
+    if (!fromDateInput || !toDateInput || !fromDateInput.value || !toDateInput.value) {
+        alert("Please select both a start and end date for filtering.");
         return;
     }
 
-    const fromDate = new Date(fromDateInput);
-    const toDate = new Date(toDateInput);
+    const fromDate = new Date(fromDateInput.value);
+    const toDate = new Date(toDateInput.value);
+    toDate.setHours(23, 59, 59);
 
-    // Ensure fromDate is not after toDate
     if (fromDate > toDate) {
         alert("Start date must be before or equal to end date.");
         return;
     }
 
-    displayShipments(fromDate, toDate);
+    const searchInput = document.getElementById('searchBar');
+    const searchKeyword = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    displayShipments(fromDate, toDate, searchKeyword);
 }
 
-// Function to reset filters and show all shipments
+// Reset filters
 function resetFilters() {
-    document.getElementById('fromDate').value = '';
-    document.getElementById('toDate').value = '';
+    const fromDateInput = document.getElementById('filterStartDate');
+    const toDateInput = document.getElementById('filterEndDate');
+    const searchInput = document.getElementById('searchBar');
+    
+    if (fromDateInput) fromDateInput.value = '';
+    if (toDateInput) toDateInput.value = '';
+    if (searchInput) searchInput.value = '';
+    
     displayShipments();
 }
 
-// Function to switch between tabs
+// Display shipments
+function displayShipments(fromDate = null, toDate = null, searchKeyword = '') {
+    const shipmentList = document.getElementById('shipmentList');
+    if (!shipmentList) return;
+    
+    shipmentList.innerHTML = '<p>Loading shipments...</p>';
+
+    let query = db.collection("shipments").orderBy("pickupDate", "desc");
+
+    query.get().then((querySnapshot) => {
+        shipmentList.innerHTML = '';
+        let totalRate = 0;
+        let matchFound = false;
+
+        querySnapshot.forEach((doc) => {
+            const shipment = doc.data();
+            let includeShipment = true;
+
+            // Date filtering
+            if (fromDate && toDate && shipment.pickupDate) {
+                const shipmentDate = new Date(shipment.pickupDate);
+                if (shipmentDate < fromDate || shipmentDate > toDate) {
+                    includeShipment = false;
+                }
+            }
+
+            // Keyword filtering
+            if (searchKeyword && includeShipment) {
+                const searchableFields = [
+                    shipment.broker,
+                    shipment.loadId,
+                    shipment.shipperName,
+                    shipment.receiverName
+                ].map(field => (field || '').toLowerCase());
+                
+                if (!searchableFields.some(field => field.includes(searchKeyword))) {
+                    includeShipment = false;
+                }
+            }
+
+            if (includeShipment) {
+                matchFound = true;
+                const shipmentRate = shipment.rate ? parseFloat(shipment.rate) : 0;
+                totalRate += shipmentRate;
+                
+                const shipmentElement = createShipmentElement(shipment);
+                shipmentList.appendChild(shipmentElement);
+            }
+        });
+
+        if (!matchFound) {
+            shipmentList.innerHTML = '<p>No shipments found for the selected criteria.</p>';
+        }
+        
+        const totalRateElement = document.getElementById('totalRate');
+        if (totalRateElement) {
+            totalRateElement.textContent = `$${formatNumber(totalRate)}`;
+        }
+    }).catch((error) => {
+        console.error("Error getting shipments: ", error);
+        shipmentList.innerHTML = '<p>Error loading shipments. Please try again.</p>';
+    });
+}
+
+// Create shipment element
+function createShipmentElement(shipment) {
+    const shipmentElement = document.createElement('div');
+    shipmentElement.className = 'shipment-item';
+    shipmentElement.innerHTML = `
+        <h3>Load ID: ${shipment.loadId}</h3>
+        <p><strong>Broker:</strong> ${shipment.broker}</p>
+        <p><strong>Rate:</strong> $${formatNumber(shipment.rate || 0)}</p>
+        <hr/>
+        <p><strong>Shipper:</strong> ${shipment.shipperName}</p>
+        <p><strong>Address:</strong> ${shipment.shipperAddress}</p>
+        <p><strong>Pick Up Date:</strong> ${shipment.pickupDate || 'N/A'}</p>
+        <hr/>
+        <p><strong>Receiver:</strong> ${shipment.receiverName}</p>
+        <p><strong>Address:</strong> ${shipment.receiverAddress}</p>
+        <p><strong>Delivery Date:</strong> ${shipment.deliveryDate || 'N/A'}</p>
+        <hr/>
+        ${shipment.pdfUrl ? `<p><a href="${shipment.pdfUrl}" target="_blank" class="pdf-link">View PDF</a></p>` : ''}
+    `;
+    return shipmentElement;
+}
+
+// Switch between tabs
 function showTab(tabId) {
-    document.getElementById('addShipmentForm').style.display = 'none';
-    document.getElementById('viewShipments').style.display = 'none';
-    document.getElementById(tabId).style.display = 'block';
+    const addShipmentForm = document.getElementById('addShipmentForm');
+    const viewShipments = document.getElementById('viewShipments');
+    
+    if (addShipmentForm) addShipmentForm.style.display = 'none';
+    if (viewShipments) viewShipments.style.display = 'none';
+    
+    const selectedTab = document.getElementById(tabId);
+    if (selectedTab) selectedTab.style.display = 'block';
 
     // Update active tab
-    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-    event.target.classList.add('active');
+    const tabButtons = document.querySelectorAll('.tab');
+    tabButtons.forEach(tab => {
+        if (tab.getAttribute('onclick').includes(tabId)) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
 
     if (tabId === 'viewShipments') {
         displayShipments();
     }
 }
-
-// Initial display
-showTab('addShipmentForm');
